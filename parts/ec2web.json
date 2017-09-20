@@ -1,0 +1,39 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "EC2 Instance A1-Webserver",
+  "Resources": {
+    "A1Webserver": {
+      "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {"Install" : [ "Install" ]},
+          "Install" : {
+            "packages" : {"apt-get": {"docker": [], "git": []}}
+          }
+        }
+      },
+      "Properties" : {
+        "ImageId" : "ami-0417e362",
+        "InstanceType" : "t2.nano",
+        "KeyName" : "ec2key",
+        "SubnetId" : {"Fn::ImportValue": "SUB-A1-1"},
+        "SecurityGroupIds" : [{ "Fn::ImportValue" : "SGP-A1-1" }],
+        "PrivateIpAddress" : "172.17.1.101",
+        "DisableApiTermination" : false,
+        "IamInstanceProfile" : "Webserver",
+        "InstanceInitiatedShutdownBehavior" : "stop",
+        "Monitoring" : false,
+        "Tags" : [{"Key": "Name", "Value": "A1-Webserver"}],
+        "UserData": {"Fn::Base64": {"Fn::Join": ["\n", [
+          "#!/bin/bash",
+          "sudo usermod -a -G docker ec2-user",
+          "sudo service docker start",
+          "git clone https://github.com/m0kimura/cmsserver",
+          "cd cmsserver",
+          "./docker.sh"
+        ]]}},
+        "Volumes" : []
+      }
+    }
+  }
+}

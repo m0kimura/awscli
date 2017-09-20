@@ -1,0 +1,164 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "Virtual Private Cloud",
+  "Resources" : {
+    "VPC": {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : "172.17.0.0/16",
+        "EnableDnsSupport" : true,
+        "EnableDnsHostnames" : true,
+        "Tags" : [ {"Key": "Name", "Value": "VPC-A1"} ]
+      }
+    },
+    "Subnet1": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "AvailabilityZone" : "ap-northeast-1a",
+        "CidrBlock" : "172.17.1.0/24",
+        "MapPublicIpOnLaunch" : true,
+        "Tags" : [
+          { "Key" : "Name", "Value" : "SUB-A1-1" }
+        ]
+      }
+    },
+    "Subnet2": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "AvailabilityZone" : "ap-northeast-1c",
+        "CidrBlock" : "172.17.2.0/24",
+        "MapPublicIpOnLaunch" : true,
+        "Tags" : [
+          { "Key" : "Name", "Value" : "SUB-A1-2" }
+        ]
+      }
+    },
+    "Subnet3": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "AvailabilityZone" : "ap-northeast-1a",
+        "CidrBlock" : "172.17.51.0/24",
+        "MapPublicIpOnLaunch" : false,
+        "Tags" : [
+          { "Key" : "Name", "Value" : "SUB-A1-3" }
+        ]
+      }
+    },
+    "Subnet4": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "AvailabilityZone" : "ap-northeast-1c",
+        "CidrBlock" : "172.17.52.0/24",
+        "MapPublicIpOnLaunch" : false,
+        "Tags" : [
+          { "Key" : "Name", "Value" : "SUB-A1-4" }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          { "Key" : "Name", "Value" : "IGW-A1" }
+        ]
+      }
+    },
+    "GatewayAttach": {
+      "Type" : "AWS::EC2::VPCGatewayAttachment",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "InternetGatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "PublicRouteTable": {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "Tags" : [
+          { "Key" : "Application", "Value" : { "Ref" : "AWS::StackId" } },
+          { "Key" : "Network", "Value" : "Public" }
+        ]
+      }
+    },
+    "PublicRoute": {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "GatewayAttach",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "PublicRouteTable" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+    "SubnetAssign1" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "Subnet1" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    },
+    "SubnetAssign2" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "Subnet2" },
+        "RouteTableId" : { "Ref" : "PublicRouteTable" }
+      }
+    },
+    "Acl" : {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" }
+      }
+    },
+    "AclEntry" : {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "CidrBlock" : "172.17.0.0/16",
+        "Egress" : "true",
+        "NetworkAclId" : { "Ref" : "Acl" },
+        "Protocol" : "-1",
+        "RuleAction" : "allow",
+        "RuleNumber" : "100"
+      }
+    },
+    "SubnetAclAssign1" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "Subnet1" },
+        "NetworkAclId" : { "Ref" : "Acl" }
+      }
+    },
+    "SubnetAclAssign2" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "Subnet2" },
+        "NetworkAclId" : { "Ref" : "Acl" }
+      }
+    },
+    "SecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupName": "SGP-A1-1",
+        "VpcId" : { "Ref" : "VPC" },
+        "GroupDescription" : "Enable SSH access via port 22",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0" }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "VPCId": {"Value": {"Ref": "VPC"}, "Export": {"Name": "VPC-A1"}},
+    "SUBId1": {"Value": {"Ref": "Subnet1"}, "Export": {"Name": "SUB-A1-1"}},
+    "SUBId2": {"Value": {"Ref": "Subnet2"}, "Export": {"Name": "SUB-A1-2"}},
+    "SUBId3": {"Value": {"Ref": "Subnet3"}, "Export": {"Name": "SUB-A1-3"}},
+    "SUBId4": {"Value": {"Ref": "Subnet4"}, "Export": {"Name": "SUB-A1-4"}},
+    "SGPId1": {"Value": {"Ref": "SecurityGroup"}, "Export": {"Name": "SGP-A1-1"}},
+    "Local1": {"Value": "xxxxxx", "Export": {"Name": "DEF-A1"}}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "User Assignment IAM",
+  "Resources": {
+    "GroupAdmin": {"Type": "AWS::IAM::Group", "Properties": {
+      "GroupName": "GroupAdmin","ManagedPolicyArns": ["arn:aws:iam::aws:policy/AdministratorAccess"]}
+    },
+    "GroupSuper": {"Type": "AWS::IAM::Group", "Properties": {
+      "GroupName": "GroupSuper", "ManagedPolicyArns": ["arn:aws:iam::aws:policy/PowerUserAccess"]
+    }},
+    "GroupReader": {"Type": "AWS::IAM::Group", "Properties": {
+      "GroupName": "GroupReader", "ManagedPolicyArns": ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+    }}
+  }
+}

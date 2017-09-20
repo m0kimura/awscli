@@ -1,0 +1,113 @@
+#!/bin/bash
+cmd=$1
+op=$2
+data=$3
+id=$AWS_ALIAS
+null=
+#> ls バケット、バケット内一覧(S3) [バケット]
+#>   @Parameter $2 バケット（省略時はバケット一覧）
+  if [[ $cmd = "ls" ]]; then
+    if  [[ $2 != "$null" ]]; then
+      aws s3 ls s3://$2
+    else
+      aws s3 ls
+    fi
+#> mkdir バケット作成(S3) bucketID(ALIASが修飾されます)
+#>   @Parameter $2 バケットID(ALIASが接尾されます)
+  elif [[ $cmd = "mkdir" ]]; then
+    aws s3 mb s3://${op}.${id}
+#> rm バケット削除(S3) bucketID(ALIASが修飾されます)
+#>   @Parameter $2 バケットID(ALIASが接尾されます)
+  elif [[ $cmd = "rm" ]]; then
+    aws s3 rb s3://${op}.${id} --force
+#> mount マウント(S3) bucketID(/mnt/??にマウント)
+#>   @Parameter $2 バケットID(ALIASが接尾されます)
+  elif [[ $cmd = "mount" ]]; then
+    sudo mkdir /mnt/${op}
+    sudo s3fs ${op}.${id} /mnt/${op} -o rw,allow_other,use_cache=/tmp,uid=1000,gid=1000
+#> backup 日付を付けてバックアップ(S3) ユーザー直下フォルダ(ALIASが修飾されます)
+#>   @Parameter $2 バケットID(ALIASが接尾されます)
+  elif [[ $cmd = "backup" ]]; then
+    day=$(date +%w)
+    aws s3 sync ~/${op} s3://userdir${id}/${day}/${op}
+#> ps EC2インスタンスの表示
+  elif [[ $cmd = "ps" ]]; then
+    aws ec2 describe-instances
+#> site サイトを指定 siteID
+#>   @Parameter {String} $2 サイトID(my/conf/$2.conf)
+  elif [[ $cmd = "site" ]]; then
+    cp $HOME/awslib/${op}.conf ~/.aws/credentials
+    aws iam list-account-aliases | jq -r .AccountAliases[0]
+#> validate CloudFormationのチェック stackID
+#>   @Parameter {String} $2 スタックID（~/conf/*.json）
+  elif [[ $cmd = "validate" ]]; then
+    aws s3 cp $HOME/awslib/${op}.json s3://formation.${id}
+    aws cloudformation validate-template \
+      --template-url http://formation.${id}.s3.amazonaws.com/${op}.json
+#> create-stack CloudFormationの登録 stackID
+#>   @Parameter {String} $2 スタックID（~/awslib/*.conf）
+  elif [[ $cmd = "create-stack" ]]; then
+    aws cloudformation create-stack --stack-name ${op} \
+      --capabilities CAPABILITY_IAM \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --template-url http://formation.${id}.s3.amazonaws.com/${op}.json
+#> update-stack CloudFormationの更新 stackID
+#>   @Parameter {String} $2 スタックID（~/awslib/*.conf）
+  elif [[ $cmd = "update-stack" ]]; then
+    aws s3 cp $HOME/awslib/${op}.json s3://formation.${id}
+    aws cloudformation update-stack --stack-name ${op} \
+      --capabilities CAPABILITY_IAM \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --template-url http://formation.${id}.s3.amazonaws.com/${op}.json
+#> delete-stack CloudFormationの削除 stackID
+#>   @Parameter {String} $2 スタックID（~/awslib/*.conf）
+  elif [[ $cmd = "delete-stack" ]]; then
+    aws cloudformation delete-stack --stack-name ${op}
+#> list-stack CloudFormationの一覧
+  elif [[ $cmd = "list-stack" ]]; then
+    aws cloudformation describe-stacks
+#> add-user ユーザー追加 userid psw group
+#>   @Parameter {String} $2 ユーザーID
+#>   @Parameter {String} $3 パスワード
+#>   @Parameter {String} $4 グループ GroupReader/GroupSuper/GroupAdmin
+  elif [[ $cmd = "add-user" ]]; then
+    aws iam create-user --user-name ${op}
+    aws iam add-user-to-group --group-name $4 --user-name ${op}
+    aws iam create-login-profile --user-name ${op} \
+        --password ${data} --password-reset-required
+#> launce インスタンスの起動 tag
+#>   @Parameter {String} $2 インスタンスタグ
+  elif [[ $cmd = "launch" ]]; then
+    iid=$(aws ec2 describe-instances --filters "Name=tag-key,Values=Name" "Name=tag-value,Values=${op}" | \
+    jq -r ".Reservations[0].Instances[0].InstanceId")
+    aws ec2 start-instances --instance-ids ${iid}
+#> halt インスタンスの停止 tag
+#>   @Parameter {String} $2 インスタンスタグ
+  elif [[ $cmd = "halt" ]]; then
+    iid=$(aws ec2 describe-instances --filters "Name=tag-key,Values=Name" "Name=tag-value,Values=${op}" | \
+    jq -r ".Reservations[0].Instances[0].InstanceId")
+    aws ec2 stop-instances --instance-ids ${iid}
+#> now 現在のawsの状態
+  elif [[ $cmd = "now" ]]; then
+    aws iam list-account-aliases | jq -r .AccountAliases[0]
+    echo ---------- EC2 ----------
+    aws ec2 describe-instances
+    echo ---------- S3  ----------
+    aws s3 ls
+#> initialize 初期化処理　[confID]/default
+#> @Parameter {String} $2 confID　~/awslib/{confID}.conf credentials定義
+  elif [[ $cmd = "initialize" ]]; then
+    if [[ $AWS_ALIAS = "$null" ]]; then
+      echo "まず、最初にexport AWS_ALIAS=??????でサイトIDを設定してください。"
+      echo "次に、/awslib/default.confに認証データを設定してください。"
+      return
+    fi
+    if [[ $op = "$null" ]]; then
+      op=default
+    fi
+    cp $HOME/awslib/${op}.conf ~/.aws/credentials
+    aws iam create-account-aliase --account-aliase $AWS_ALIAS
+    aws s3 mb s3://formation.${id}
+  else
+    echo "ERROR コマンドがありません。 : ${cmd}"
+  fi
