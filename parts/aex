@@ -103,8 +103,45 @@ id=$(aws iam list-account-aliases | jq -r .AccountAliases[0])
     aws ec2 describe-instances
     echo ---------- S3  ----------
     aws s3 ls
+#> ask Alexa-skillの使用開始 none
+  elif [[ $cmd = "ask" ]]; then
+    ask init --no-browser
+#> skill-init skillの初期化 skillName
+#>   @Parameter {String} $2 スキル名
+  elif [[ $cmd = "skill" ]]; then
+    ask new -n ${op}
+    mkdir ${op}
+#> skill-update skillを更新します。 skillName
+#>   @Parameter {String} $2 スキル名(ホルダになります)
+  elif [[ $cmd = 'skill-update' ]]; then
+    skillid=$(jq -r ".${op}" < ./skillid.json)
+    cd ${op}
+    ask api update-skill -s ${skillid} -f ${op}/skill.json
+#> skill-models skill modelを更新します。 skillName locale
+#>   @Parameter {String} $2 スキル名(ホルダになります)
+#>   @Parameter {String} $3 ロケール（JSONファイル名になります。）
+  elif [[ $cmd = 'skill-models' ]]; then
+    skillid=$(jq -r ".${op}" < ./skillid.json)
+    cd ${op}
+    if [[ $data = "$null" ]]; then
+      data='ja-JP.json'
+    fi
+    locale=$(echo ${data} | cut -d '.' -f 1)
+    ask api update-model -s ${skillid} -f ${op}/models/${data} -l ${locale}
+#> skill-deploy skillを処理します。 skillName
+#>   @Parameter {String} $2 スキル名(ホルダになります)
+  elif [[ $cmd = "skill-deploy" ]]; then
+    cd ${op}
+    ask deploy
+#> skill-status skillを処理します。 skillName
+#>   @Parameter {String} $2 スキル名(ホルダになります)
+#>   @Parameter {String} $3 ロケール（JSONファイル名になります。）
+  elif [[ $cmd = "skill-status" ]]; then
+    skillid=$(jq -r ".${op}" < ./skillid.json)
+    cd ${op}
+    ask api get-skill-status -s ${skillid}
 #> initialize 初期化処理　[confID]/default
-#> @Parameter {String} $2 confID　~/awslib/{confID}.conf credentials定義
+#>   @Parameter {String} $2 confID　~/awslib/{confID}.conf credentials定義
   elif [[ $cmd = "initialize" ]]; then
     if [[ $AWS_ALIAS = "$null" ]]; then
       echo "まず、最初にexport AWS_ALIAS=??????で「サイトID」を設定してください。"
@@ -117,6 +154,10 @@ id=$(aws iam list-account-aliases | jq -r .AccountAliases[0])
     cp $HOME/my/conf/${op}.conf ~/.aws/credentials
     aws iam create-account-alias --account-alias $AWS_ALIAS
     aws s3 mb s3://formation.$AWS_ALIAS
+#> help ヘルプ　none
+  elif [[ $cmd = "initialize" ]]; then
+    echo "aex コマンドの使い方"
+    Helps aex
   else
     echo "ERROR コマンドがありません。 : ${cmd}"
   fi

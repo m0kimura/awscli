@@ -1,0 +1,19 @@
+#!/bin/bash
+##
+  filename=/usr/bin/$1
+  while read line; do
+    if [[ ${line} != '' ]]; then
+      mk=$(echo ${line} | cut -d " " -f 1)
+      if [[ ${mk} = '#>' ]]; then
+        if [[ $2 != 'all' ]]; then
+          test=$(echo ${line} | grep @)
+          if [[ ! ${test} ]]; then
+            echo ${line}
+          fi
+        else
+          echo ${line}
+        fi
+      fi
+    fi
+  done < ${filename}
+##
